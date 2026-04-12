@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reverse List - Interactive Guide</title>
+    <meta name="description" content="Learn how to reverse a linked list with interactive animations and a mini-game.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+    <header class="glass-nav">
+        <div class="logo">Reversa</div>
+        <nav>
+            <a href="#learn">Learn</a>
+            <a href="#demo">Demo</a>
+            <a href="#game">Game</a>
+            <a href="#tips">Pro Tips</a>
+            <a href="#practice">Practice</a>
+        </nav>
+    </header>
+
+    <main>
+        <!-- Hero Section -->
+        <section class="hero">
+            <h1>Master Linked List <span class="highlight">Reversal</span></h1>
+            <p>An interactive, step-by-step guide to understanding the most famous data structure interview question.</p>
+            <a href="#learn" class="btn primary-btn">Start Learning</a>
+        </section>
+
+        <!-- 1. Easy Explanation Section -->
+        <section id="learn" class="section">
+            <h2 class="section-title">What is this about?</h2>
+            <div class="cards-grid">
+                <div class="card">
+                    <h3>What is a Linked List?</h3>
+                    <p>Unlike arrays that sit together in memory, a linked list is a chain of nodes spread out. Each node holds some <strong>data</strong> and an <strong>arrow (next pointer)</strong> pointing to the following node.</p>
+                </div>
+                <div class="card">
+                    <h3>What does Reversing mean?</h3>
+                    <p>Reversing simply means flipping all the arrows so they point backward. The former <strong>tail</strong> becomes the new <strong>head</strong>!</p>
+                </div>
+                <div class="card">
+                    <h3>Why do it?</h3>
+                    <p>It's a foundational mental model. If you can reverse a linked list, you understand pointers, references, and holding temporary state.</p>
+                </div>
+            </div>
+
+            <div class="explanation-box glass-panel">
+                <h3>The 4 Magic Steps</h3>
+                <ol class="steps-list">
+                    <li><strong>Save next:</strong> <code>next = curr.next</code> (Don't lose the rest of the list!)</li>
+                    <li><strong>Reverse link:</strong> <code>curr.next = prev</code> (Flip the arrow backward)</li>
+                    <li><strong>Move prev:</strong> <code>prev = curr</code> (Step forward)</li>
+                    <li><strong>Move curr:</strong> <code>curr = next</code> (Step forward)</li>
+                </ol>
+            </div>
+
+            <div class="complexity-box">
+                <div class="stat">
+                    <span>Time Complexity</span>
+                    <strong>O(N)</strong>
+                    <small>We visit each node exactly once</small>
+                </div>
+                <div class="stat">
+                    <span>Space Complexity</span>
+                    <strong>O(1)</strong>
+                    <small>We only use 3 pointers, no matter the list size</small>
+                </div>
+            </div>
+            
+            <div class="alert warning mt-4">
+                <strong>Common Mistake:</strong> Modifying <code>curr.next</code> before saving it! If you change the link first, you sever the chain and lose the remaining list forever.
+            </div>
+        </section>
+
+        <!-- 2. Interactive visual demo -->
+        <section id="demo" class="section">
+            <h2 class="section-title">Interactive Demo</h2>
+            <p class="subtitle">Watch the pointers dance! Step through the algorithm manually or auto-play.</p>
+            
+            <div class="demo-container glass-panel">
+                <div class="controls">
+                    <button id="demo-reset" class="btn icon-btn">♻️ Reset</button>
+                    <button id="demo-step" class="btn primary-btn">Next Step ➔</button>
+                    <button id="demo-play" class="btn">▶ Auto Play</button>
+                </div>
+                
+                <div class="legend">
+                    <span class="badge badge-prev">prev</span>
+                    <span class="badge badge-curr">curr</span>
+                    <span class="badge badge-next">next</span>
+                </div>
+
+                <div class="visual-canvas" id="demo-canvas">
+                    <!-- Nodes will be injected here via JS -->
+                </div>
+
+                <div class="code-tracker">
+                    <div id="code-line-1">next = curr.next</div>
+                    <div id="code-line-2">curr.next = prev</div>
+                    <div id="code-line-3">prev = curr</div>
+                    <div id="code-line-4">curr = next</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. Interactive game -->
+        <section id="game" class="section">
+            <h2 class="section-title">The Reversal Game</h2>
+            <p class="subtitle">Can you execute the algorithm yourself? Select the correct line of code for each step.</p>
+            
+            <div class="game-container glass-panel">
+                <div class="game-status">
+                    <span id="game-score">Score: 0</span>
+                    <span id="game-message" class="game-msg">Ready to start!</span>
+                </div>
+
+                <div class="visual-canvas small-canvas" id="game-canvas">
+                    <!-- Game Nodes -->
+                </div>
+
+                <div class="game-options">
+                    <button class="game-btn" data-step="1"><code>next = curr.next;</code></button>
+                    <button class="game-btn" data-step="2"><code>curr.next = prev;</code></button>
+                    <button class="game-btn" data-step="3"><code>prev = curr;</code></button>
+                    <button class="game-btn" data-step="4"><code>curr = next;</code></button>
+                </div>
+
+                <div class="game-hint hide" id="game-hint">
+                    Hint: You always need to save the rest of the list before changing pointers!
+                </div>
+
+                <div class="game-controls">
+                    <button id="game-reset" class="btn">Restart Game</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. Pro tips section -->
+        <section id="tips" class="section">
+            <h2 class="section-title">Pro Tips</h2>
+            <div class="tips-grid">
+                <div class="tip-card style-1">
+                    <div class="icon">💡</div>
+                    <h4>Draw it on paper</h4>
+                    <p>Always draw boxes and arrows before coding. It prevents off-by-one errors.</p>
+                </div>
+                <div class="tip-card style-2">
+                    <div class="icon">🔗</div>
+                    <h4>Reverse one connection at a time</h4>
+                    <p>Focus purely on isolating the current node and flipping its arrow to point backward.</p>
+                </div>
+                <div class="tip-card style-3">
+                    <div class="icon">🧪</div>
+                    <h4>Test edge cases</h4>
+                    <p>What if the list is empty (<code>head = null</code>)? What if it has one node? Test these mentally.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 5. Practice section -->
+        <section id="practice" class="section">
+            <h2 class="section-title">Knowledge Check</h2>
+            
+            <div class="quiz-item">
+                <div class="quiz-q">1. What is the final head of the list after reversal?</div>
+                <div class="quiz-opts">
+                    <button onclick="checkAnswer(this, false)">The original head</button>
+                    <button onclick="checkAnswer(this, true)">The 'prev' pointer</button>
+                    <button onclick="checkAnswer(this, false)">The 'curr' pointer</button>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+
+            <div class="quiz-item">
+                <div class="quiz-q">2. What happens if the list has only one node?</div>
+                <div class="quiz-opts">
+                    <button onclick="checkAnswer(this, false)">It errors out</button>
+                    <button onclick="checkAnswer(this, true)">The loop runs once, head remains same</button>
+                    <button onclick="checkAnswer(this, false)">Infinite loop</button>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+            
+            <div class="quiz-item">
+                <div class="quiz-q">3. What is the correct initial state before the loop?</div>
+                <div class="quiz-opts">
+                    <button onclick="checkAnswer(this, false)">prev = head, curr = null</button>
+                    <button onclick="checkAnswer(this, true)">prev = null, curr = head</button>
+                    <button onclick="checkAnswer(this, false)">prev = null, curr = null</button>
+                </div>
+                <div class="quiz-feedback"></div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Built for visual learners wanting to master Data Structures.</p>
+    </footer>
+
+    <script src="js/main.js"></script>
+    <script src="js/visualizer.js"></script>
+    <script src="js/game.js"></script>
+</body>
+</html>
