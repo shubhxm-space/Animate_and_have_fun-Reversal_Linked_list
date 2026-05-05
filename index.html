@@ -1,155 +1,291 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visual Linked List Reverser</title>
-    <style>
-        :root {
-            --primary: #4f46e5;
-            --secondary: #ec4899;
-            --bg: #f8fafc;
-            --node-bg: #ffffff;
-        }
-
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        h1 { color: #1e293b; margin-bottom: 10px; }
-        
-        .controls { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); margin-bottom: 30px; display: flex; gap: 10px; }
-        
-        input { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; }
-        button { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: transform 0.1s; }
-        button:active { transform: scale(0.95); }
-        .btn-add { background: var(--primary); color: white; }
-        .btn-reverse { background: var(--secondary); color: white; }
-        .btn-reset { background: #64748b; color: white; }
-
-        #container { display: flex; align-items: center; justify-content: center; min-height: 200px; gap: 0; flex-wrap: wrap; width: 90%; }
-
-        .node-wrapper { display: flex; align-items: center; transition: all 0.5s ease; }
-        
-        .node {
-            width: 60px; height: 60px; border: 3px solid #1e293b; border-radius: 8px;
-            display: flex; align-items: center; justify-content: center;
-            background: var(--node-bg); font-weight: bold; font-size: 1.2rem;
-            position: relative; transition: all 0.5s ease;
-        }
-
-        .node.active-curr { border-color: var(--secondary); box-shadow: 0 0 15px var(--secondary); }
-        .node.active-prev { border-color: #10b981; box-shadow: 0 0 15px #10b981; }
-
-        .arrow {
-            width: 40px; height: 2px; background: #1e293b; position: relative;
-            margin: 0 5px; transition: all 0.5s ease;
-        }
-        .arrow::after {
-            content: ''; position: absolute; right: 0; top: -4px;
-            width: 0; height: 0; border-top: 5px solid transparent;
-            border-bottom: 5px solid transparent; border-left: 8px solid #1e293b;
-        }
-
-        .reversed-arrow { transform: rotate(180px); background: var(--secondary); }
-        .reversed-arrow::after { border-left-color: var(--secondary); }
-
-        .status-msg { margin-top: 20px; font-style: italic; color: #475569; height: 24px; }
-        
-        .pointer-labels { display: flex; gap: 20px; margin-top: 10px; font-size: 0.9rem; }
-        .label-p { color: #10b981; font-weight: bold; }
-        .label-c { color: var(--secondary); font-weight: bold; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LinkedList Reversal — Visual Explorer</title>
+  <meta name="description"
+    content="An interactive, animated tool for visually understanding how a singly linked list is reversed step-by-step." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
 
-    <h1>Linked List Reversal Visualizer</h1>
-
-    <div class="controls">
-        <input type="number" id="nodeVal" placeholder="Value">
-        <button class="btn-add" onclick="addNode()">Add Node</button>
-        <button class="btn-reverse" onclick="startReversal()">Reverse Step-by-Step</button>
-        <button class="btn-reset" onclick="resetList()">Reset</button>
+  <!-- ── HEADER ── -->
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-icon">⟳</div>
+        <div>
+          <span class="logo-title">ListReverse</span>
+          <span class="logo-sub">Visual Explorer</span>
+        </div>
+      </div>
+      <nav class="header-actions">
+        <button id="darkModeBtn" class="icon-btn" title="Toggle dark mode">🌙</button>
+        <button id="soundBtn" class="icon-btn" title="Toggle sound">🔊</button>
+      </nav>
     </div>
+  </header>
 
-    <div id="container"></div>
-    
-    <div class="status-msg" id="status">Add nodes to begin...</div>
-    
-    <div class="pointer-labels">
-        <span class="label-p">● Prev Pointer</span>
-        <span class="label-c">● Curr Pointer</span>
-    </div>
+  <!-- ── HERO ── -->
+  <section class="hero">
+    <h1 class="hero-title">Linked List <span class="gradient-text">Reversal</span></h1>
+    <p class="hero-subtitle">Watch pointers flip direction in real-time — step by step, frame by frame.</p>
+  </section>
 
-    <script>
-        let list = [];
-        let isReversing = false;
-        let pIdx = -1;
-        let cIdx = 0;
+  <main class="app-grid">
 
-        function addNode() {
-            if(isReversing) return;
-            const val = document.getElementById('nodeVal').value || Math.floor(Math.random() * 100);
-            list.push({ val: val, reversed: false });
-            render();
-        }
+    <!-- ── LEFT COLUMN ── -->
+    <aside class="left-col">
 
-        function render() {
-            const container = document.getElementById('container');
-            container.innerHTML = '';
-            
-            list.forEach((node, i) => {
-                const wrapper = document.createElement('div');
-                wrapper.className = 'node-wrapper';
-                
-                const nodeDiv = document.createElement('div');
-                nodeDiv.className = `node ${i === cIdx && isReversing ? 'active-curr' : ''} ${i === pIdx && isReversing ? 'active-prev' : ''}`;
-                nodeDiv.innerText = node.val;
-                
-                wrapper.appendChild(nodeDiv);
+      <!-- Input Panel -->
+      <div class="card" id="inputCard">
+        <div class="card-header">
+          <span class="card-icon">✏️</span>
+          <h2 class="card-title">Build Your List</h2>
+        </div>
+        <div class="input-row">
+          <input id="listInput" type="text" placeholder="e.g. 1, 2, 3, 4, 5" autocomplete="off" />
+          <button id="generateBtn" class="btn btn-primary">Generate</button>
+        </div>
+        <p class="hint">Enter comma-separated values (max 8 nodes)</p>
 
-                if (i < list.length - 1) {
-                    const arrow = document.createElement('div');
-                    arrow.className = `arrow ${node.reversed ? 'reversed-arrow' : ''}`;
-                    // Special logic for visual reversal: in a real list the arrow flips. 
-                    // To keep UI simple, we just highlight it.
-                    wrapper.appendChild(arrow);
-                }
-                
-                container.appendChild(wrapper);
-            });
-        }
+        <!-- Quick presets -->
+        <div class="preset-section">
+          <div class="preset-header">
+            <span class="preset-label">Quick Presets</span>
+            <button id="surpriseBtn" class="surprise-btn" title="Pick a random series">🎲 Surprise Me!</button>
+          </div>
 
-        async function startReversal() {
-            if (list.length < 2 || isReversing) return;
-            isReversing = true;
-            pIdx = -1;
-            cIdx = 0;
-            
-            const status = document.getElementById('status');
+          <div class="preset-group">
+            <span class="preset-group-label">📈 Ascending</span>
+            <div class="preset-chips">
+              <button class="preset-chip" data-val="1,2,3">1–3</button>
+              <button class="preset-chip" data-val="1,2,3,4,5">1–5</button>
+              <button class="preset-chip" data-val="1,2,3,4,5,6,7">1–7</button>
+              <button class="preset-chip" data-val="5,10,15,20,25">×5</button>
+              <button class="preset-chip" data-val="10,20,30,40,50">×10</button>
+              <button class="preset-chip" data-val="3,6,9,12,15,18">×3</button>
+            </div>
+          </div>
 
-            for (let i = 0; i <= list.length; i++) {
-                if (cIdx < list.length) {
-                    status.innerText = `Step ${i+1}: Pointer 'next' stores node ${cIdx + 1}. Flipping arrow of Node ${list[cIdx].val}.`;
-                    list[cIdx].reversed = true;
-                } else {
-                    status.innerText = "Reversal Complete! New Head is " + list[list.length-1].val;
-                }
-                
-                render();
-                await new Promise(r => setTimeout(r, 1500));
-                
-                pIdx = cIdx;
-                cIdx++;
-            }
-            isReversing = false;
-        }
+          <div class="preset-group">
+            <span class="preset-group-label">📉 Descending</span>
+            <div class="preset-chips">
+              <button class="preset-chip" data-val="5,4,3,2,1">5→1</button>
+              <button class="preset-chip" data-val="9,7,5,3,1">Odd↓</button>
+              <button class="preset-chip" data-val="8,6,4,2">Even↓</button>
+              <button class="preset-chip" data-val="100,75,50,25">÷4</button>
+            </div>
+          </div>
 
-        function resetList() {
-            list = [];
-            isReversing = false;
-            pIdx = -1;
-            cIdx = 0;
-            document.getElementById('status').innerText = "List cleared.";
-            render();
-        }
-    </script>
+          <div class="preset-group">
+            <span class="preset-group-label">🌀 Fibonacci</span>
+            <div class="preset-chips">
+              <button class="preset-chip" data-val="1,1,2,3,5">Fib-5</button>
+              <button class="preset-chip" data-val="1,1,2,3,5,8">Fib-6</button>
+              <button class="preset-chip" data-val="1,2,3,5,8,13,21">Fib-7</button>
+            </div>
+          </div>
+
+          <div class="preset-group">
+            <span class="preset-group-label">🔢 Primes</span>
+            <div class="preset-chips">
+              <button class="preset-chip" data-val="2,3,5,7">P-4</button>
+              <button class="preset-chip" data-val="2,3,5,7,11">P-5</button>
+              <button class="preset-chip" data-val="2,3,5,7,11,13">P-6</button>
+              <button class="preset-chip" data-val="11,13,17,19,23">P-hi</button>
+            </div>
+          </div>
+
+          <div class="preset-group">
+            <span class="preset-group-label">⚡ Powers</span>
+            <div class="preset-chips">
+              <button class="preset-chip" data-val="1,2,4,8,16">2ⁿ</button>
+              <button class="preset-chip" data-val="1,3,9,27,81">3ⁿ</button>
+              <button class="preset-chip" data-val="1,4,9,16,25">n²</button>
+              <button class="preset-chip" data-val="1,8,27,64">n³</button>
+            </div>
+          </div>
+
+          <div class="preset-group">
+            <span class="preset-group-label">🪞 Palindrome</span>
+            <div class="preset-chips">
+              <button class="preset-chip" data-val="1,2,1">1-2-1</button>
+              <button class="preset-chip" data-val="1,2,3,2,1">Peak</button>
+              <button class="preset-chip" data-val="3,5,7,5,3">Sym</button>
+              <button class="preset-chip" data-val="9,1,5,1,9">Mirror</button>
+            </div>
+          </div>
+
+          <div class="preset-group">
+            <span class="preset-group-label">🎲 Mixed</span>
+            <div class="preset-chips">
+              <button class="preset-chip" data-val="7,3,9,1,5,2">Chaos</button>
+              <button class="preset-chip" data-val="42,7,13,99,3">Wild</button>
+              <button class="preset-chip" data-val="8,1,6,3,7,2,4">Lucky 7</button>
+              <button class="preset-chip" data-val="0,5,3,8,1">Zero</button>
+              <button class="preset-chip" data-val="6,6,6">Triple</button>
+            </div>
+          </div>
+
+          <div class="preset-group">
+            <span class="preset-group-label">📏 By Length</span>
+            <div class="preset-chips">
+              <button class="preset-chip" data-val="4,7">2 nodes</button>
+              <button class="preset-chip" data-val="1,5,9">3 nodes</button>
+              <button class="preset-chip" data-val="2,4,6,8">4 nodes</button>
+              <button class="preset-chip" data-val="1,3,5,7,9,11,13,15">8 nodes</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Variable Tracker -->
+      <div class="card" id="varCard">
+        <div class="card-header">
+          <span class="card-icon">📊</span>
+          <h2 class="card-title">Variable Tracker</h2>
+        </div>
+        <div class="var-grid">
+          <div class="var-box" id="varPrev">
+            <div class="var-label">prev</div>
+            <div class="var-value" id="prevVal">NULL</div>
+            <div class="var-badge" style="background:#f97316">prev</div>
+          </div>
+          <div class="var-box" id="varCurr">
+            <div class="var-label">current</div>
+            <div class="var-value" id="currVal">—</div>
+            <div class="var-badge" style="background:#6366f1">curr</div>
+          </div>
+          <div class="var-box" id="varNext">
+            <div class="var-label">next</div>
+            <div class="var-value" id="nextVal">—</div>
+            <div class="var-badge" style="background:#10b981">next</div>
+          </div>
+        </div>
+        <div class="step-explanation" id="stepExplanation">
+          <span class="step-icon">💡</span>
+          <span id="explanationText">Generate a list and press Start to begin.</span>
+        </div>
+      </div>
+
+      <!-- Before / After Comparison -->
+      <div class="card" id="compareCard">
+        <div class="card-header">
+          <span class="card-icon">⇄</span>
+          <h2 class="card-title">Before vs After</h2>
+        </div>
+        <div class="compare-section">
+          <div class="compare-list">
+            <div class="compare-label original">Original</div>
+            <div class="compare-nodes" id="originalList">—</div>
+          </div>
+          <div class="compare-list">
+            <div class="compare-label reversed">Reversed</div>
+            <div class="compare-nodes" id="reversedList">—</div>
+          </div>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- ── CENTER ── -->
+    <section class="center-col">
+
+      <!-- Visualization Canvas -->
+      <div class="card viz-card" id="vizCard">
+        <div class="card-header">
+          <span class="card-icon">🔗</span>
+          <h2 class="card-title">List Visualization</h2>
+          <div class="step-counter" id="stepCounter">Step 0 / 0</div>
+        </div>
+        <div class="viz-stage" id="vizStage">
+          <div class="empty-state" id="emptyState">
+            <div class="empty-icon">🔗</div>
+            <p>Build a linked list above to get started</p>
+          </div>
+          <div id="listCanvas" class="list-canvas hidden"></div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="progress-bar-wrap">
+          <div class="progress-bar" id="progressBar" style="width:0%"></div>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="card controls-card" id="controlsCard">
+        <div class="controls-main">
+          <button class="ctrl-btn" id="resetBtn" title="Reset">⟳ Reset</button>
+          <button class="ctrl-btn" id="prevStepBtn" title="Previous step">◀ Prev</button>
+          <button class="ctrl-btn ctrl-start" id="startBtn" title="Start / Pause">▶ Start</button>
+          <button class="ctrl-btn" id="nextStepBtn" title="Next step">Next ▶</button>
+          <button class="ctrl-btn ctrl-auto" id="autoBtn" title="Auto play">⏩ Auto</button>
+        </div>
+        <div class="speed-wrap">
+          <span class="speed-label">🐢</span>
+          <input type="range" id="speedSlider" min="1" max="5" value="3" class="speed-slider" />
+          <span class="speed-label">🚀</span>
+          <span class="speed-value" id="speedValue">Normal</span>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ── RIGHT COLUMN ── -->
+    <aside class="right-col">
+
+      <!-- Language Toggle + Code Panel -->
+      <div class="card code-card" id="codeCard">
+        <div class="card-header">
+          <span class="card-icon">💻</span>
+          <h2 class="card-title">Code</h2>
+          <div class="lang-tabs">
+            <button class="lang-tab active" data-lang="python">Python</button>
+            <button class="lang-tab" data-lang="java">Java</button>
+            <button class="lang-tab" data-lang="c">C</button>
+          </div>
+        </div>
+        <div class="code-block" id="codeBlock">
+          <!-- Lines injected by JS -->
+        </div>
+      </div>
+
+      <!-- Algorithm Steps -->
+      <div class="card" id="algoCard">
+        <div class="card-header">
+          <span class="card-icon">📋</span>
+          <h2 class="card-title">Algorithm Steps</h2>
+        </div>
+        <ol class="algo-steps" id="algoSteps">
+          <li class="algo-step" data-phase="0">Initialize <code>prev = NULL</code>, <code>curr = head</code></li>
+          <li class="algo-step" data-phase="1">Save <code>next = curr.next</code></li>
+          <li class="algo-step" data-phase="2">Reverse link: <code>curr.next = prev</code></li>
+          <li class="algo-step" data-phase="3">Move <code>prev = curr</code></li>
+          <li class="algo-step" data-phase="4">Move <code>curr = next</code></li>
+          <li class="algo-step" data-phase="5">Repeat until <code>curr == NULL</code></li>
+          <li class="algo-step" data-phase="6">Set <code>head = prev</code> (new head)</li>
+        </ol>
+      </div>
+
+    </aside>
+
+  </main>
+
+  <!-- Toast notifications -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Audio context (generated tones) -->
+  <audio id="clickSound" preload="auto"></audio>
+
+  <script src="app.js"></script>
 </body>
+
 </html>
