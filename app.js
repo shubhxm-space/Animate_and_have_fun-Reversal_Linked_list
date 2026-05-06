@@ -159,143 +159,377 @@ function buildSteps(values) {
 /* ══════════════════════════════════════════════
    RENDER HELPERS
 ══════════════════════════════════════════════ */
+/* ── fake memory addresses (stable per session) ── */
+const ADDRS = Array.from({length: 12}, (_, i) =>
+  '0x' + (0x1a00 + i * 0x10).toString(16).toUpperCase()
+);
+
+/* ── Phase → operation banner text ── */
+const PHASE_OP = {
+  '-1': { label: 'Ready',    code: 'Press ▶ Start or Next ▶ to begin' },
+   0:   { label: 'Init',     code: 'prev = None   curr = head' },
+   1:   { label: 'Step 1',   code: 'nxt = curr.next' },
+   2:   { label: 'Step 2',   code: 'curr.next = prev   ← pointer reversed!' },
+   3:   { label: 'Step 3',   code: 'prev = curr' },
+   4:   { label: 'Step 4',   code: 'curr = nxt' },
+   5:   { label: 'Loop',     code: 'while curr != NULL  →  repeat' },
+   6:   { label: 'Done ✓',   code: 'head = prev   ← new head set! 🎉' },
+};
+
+/**
+ * Compute scaled dimensions so the canvas always fits inside vizStage.
+ * Reads the live clientWidth so it responds to any layout.
+ */
+function getScaledDims(n) {
+  const BASE_NODE_W  = 96;
+  const BASE_ARROW_W = 48;
+  const BASE_HEAD_W  = 56;
+  const BASE_NULL_W  = 72; // arrow + null-node combined
+  const STAGE_PAD    = 32; // viz-stage left+right padding
+
+  // Total natural width = head + n*node + (n-1)*arrow + 1*arrow + null
+  const natural = BASE_HEAD_W + n * BASE_NODE_W + n * BASE_ARROW_W + BASE_NULL_W;
+
+  // Available width inside the stage
+  const available = (vizStage.clientWidth || 700) - STAGE_PAD;
+
+  // Scale ≤ 1 (never zoom in, only shrink)
+  const scale = Math.min(1, available / natural);
+
+  return {
+    NODE_W:   Math.floor(BASE_NODE_W  * scale),
+    ARROW_W:  Math.floor(BASE_ARROW_W * scale),
+    HEAD_W:   Math.floor(BASE_HEAD_W  * scale),
+    NULL_W:   Math.floor(BASE_NULL_W  * scale),
+    scale,
+    // proportional font sizes
+    dataFS:   Math.max(1.0, 2.0  * scale) + 'rem',
+    labelFS:  Math.max(0.42, 0.58 * scale) + 'rem',
+    ptrFS:    Math.max(0.42, 0.60 * scale) + 'rem',
+    addrFS:   Math.max(0.38, 0.56 * scale) + 'rem',
+    ptrBadgeFS: Math.max(0.48, 0.65 * scale) + 'rem',
+    stemH:    Math.max(8, 16 * scale) + 'px',
+    ptrRowH:  Math.max(32, 52 * scale) + 'px',
+    addrRowH: Math.max(18, 28 * scale) + 'px',
+  };
+}
+
+
+function updateOpBanner(phase) {
+  const opCode = document.getElementById('opCode');
+  const opDot  = document.getElementById('opDot');
+  const banner = document.getElementById('opBanner');
+  const op = PHASE_OP[phase] ?? PHASE_OP['-1'];
+
+  // find & replace op-label span
+  const oldLabel = banner.querySelector('.op-label');
+  if (oldLabel) oldLabel.textContent = op.label;
+  opCode.textContent = op.code;
+
+  const isActive = phase >= 0 && phase < 6;
+  opDot.style.display = isActive ? 'block' : 'none';
+
+  // banner accent color per phase
+  const colors = {
+    0: 'rgba(99,102,241,0.12)',
+    1: 'rgba(16,185,129,0.12)',
+    2: 'rgba(249,115,22,0.14)',
+    3: 'rgba(249,115,22,0.14)',
+    4: 'rgba(99,102,241,0.12)',
+    6: 'rgba(34,197,94,0.14)',
+  };
+  banner.style.background = `linear-gradient(135deg, ${colors[phase] ?? 'rgba(99,102,241,0.08)'}, rgba(168,85,247,0.08))`;
+}
+
 function renderListCanvas(step) {
   const { values } = state;
-  const { prev, curr, next, reversed } = step;
+  const { prev, curr, next, reversed, phase } = step;
   const n = values.length;
 
   listCanvas.innerHTML = '';
   listCanvas.classList.remove('hidden');
   emptyState.classList.add('hidden');
 
-  // HEAD label
-  const headWrap = document.createElement('div');
-  headWrap.className = 'head-label';
-  headWrap.innerHTML = `<div class="head-badge">HEAD</div><div class="head-arrow"></div>`;
-  listCanvas.appendChild(headWrap);
+  updateOpBanner(phase);
 
+  const { NODE_W, ARROW_W, HEAD_W, NULL_W, scale,
+          dataFS, labelFS, ptrFS, addrFS, ptrBadgeFS,
+          stemH, ptrRowH, addrRowH } = getScaledDims(n);
+
+  /* ── Build 3 rows ── */
+  const ptrRow  = document.createElement('div');
+  const nodeRow = document.createElement('div');
+  const addrRow = document.createElement('div');
+  ptrRow.className  = 'ptr-row';
+  nodeRow.className = 'node-row';
+  addrRow.className = 'addr-row';
+  ptrRow.style.height  = ptrRowH;
+  addrRow.style.height = addrRowH;
+
+  /* ── HEAD column ── */
+  // ptr-row: spacer
+  const ptrHead = document.createElement('div');
+  ptrHead.className = 'ptr-cell ptr-cell-head';
+  ptrHead.style.width = HEAD_W + 'px';
+  ptrRow.appendChild(ptrHead);
+
+  // node-row: HEAD badge + arrow
+  const headCol = document.createElement('div');
+  headCol.className = 'head-col';
+  headCol.style.width = HEAD_W + 'px';
+  headCol.innerHTML = `
+    <div class="head-label">
+      <div class="head-badge">HEAD</div>
+      <div class="head-arrow"></div>
+    </div>`;
+  nodeRow.appendChild(headCol);
+
+  // addr-row: spacer
+  const addrHead = document.createElement('div');
+  addrHead.className = 'addr-cell';
+  addrHead.style.width = HEAD_W + 'px';
+  addrRow.appendChild(addrHead);
+
+  /* ── Node columns ── */
   for (let i = 0; i < n; i++) {
+    const addr = ADDRS[i] || ('0x' + (0x1a00 + i * 0x10).toString(16).toUpperCase());
+    const nextAddr = i < n - 1 ? ADDRS[i + 1] : 'NULL';
+
+    /* ----- PTR-ROW cell ----- */
+    const ptrCell = document.createElement('div');
+    ptrCell.className = 'ptr-cell';
+    ptrCell.style.width = NODE_W + 'px';
+
+    // Collect which pointer(s) land on node i
+    const ptrs = [];
+    if (prev === i) ptrs.push({ cls: 'ptr-prev', label: 'prev' });
+    if (curr === i) ptrs.push({ cls: 'ptr-curr', label: 'curr' });
+    if (next === i) ptrs.push({ cls: 'ptr-next', label: 'next' });
+
+    ptrs.forEach(p => {
+      const ind = document.createElement('div');
+      ind.className = `ptr-indicator ${p.cls}`;
+      ind.style.animationDelay = '0s';
+      const badge = `<div class="ptr-badge" style="font-size:${ptrBadgeFS}">${p.label}</div>`;
+      const stem  = `<div class="ptr-stem" style="height:${stemH}"></div>`;
+      ind.innerHTML = badge + stem;
+      ptrCell.appendChild(ind);
+    });
+
+    ptrRow.appendChild(ptrCell);
+
+    /* ----- NODE-ROW cell ----- */
     const wrap = document.createElement('div');
     wrap.className = 'node-wrap';
-    wrap.style.animationDelay = (i * 0.06) + 's';
+    wrap.style.animationDelay = (i * 0.05) + 's';
 
     const node = document.createElement('div');
     node.className = 'node';
     node.id = 'node-' + i;
 
-    // Label row
-    const label = document.createElement('div');
-    label.className = 'node-label';
-    label.textContent = 'Node';
-    node.appendChild(label);
-
-    // Data
-    const data = document.createElement('div');
-    data.className = 'node-data';
-    data.textContent = values[i];
-    node.appendChild(data);
-
-    // Next pointer display
-    const ptr = document.createElement('div');
-    ptr.className = 'node-ptr';
-    ptr.textContent = 'next → ' + (i < n - 1 ? values[i + 1] : 'NULL');
-    node.appendChild(ptr);
-
-    // Tooltip
-    node.title = `Node[${i}] = ${values[i]}`;
-
-    // Badges
-    const badges = [];
-    if (prev === i) badges.push({ label: 'prev', color: '#f97316' });
-    if (curr === i) badges.push({ label: 'curr', color: '#6366f1' });
-    if (next === i) badges.push({ label: 'next', color: '#10b981' });
-    if (badges.length) {
-      const b = document.createElement('div');
-      b.className = 'node-badge';
-      b.style.background = badges[0].color;
-      b.textContent = badges.map(x => x.label).join('/');
-      node.appendChild(b);
-    }
-
     // Highlight class
-    if (prev === i && curr === i) node.classList.add('hl-curr');
-    else if (curr === i) node.classList.add('hl-curr');
-    else if (prev === i) node.classList.add('hl-prev');
-    else if (next === i) node.classList.add('hl-next');
-    else if (reversed.includes(i)) node.classList.add('hl-done');
+    const isPrev = prev === i, isCurr = curr === i, isNext = next === i;
+    const isDone = reversed.includes(i);
+    if (isPrev && isCurr) node.classList.add('hl-prevcurr');
+    else if (isCurr)      node.classList.add('hl-curr');
+    else if (isPrev)      node.classList.add('hl-prev');
+    else if (isNext)      node.classList.add('hl-next');
+    else if (isDone)      node.classList.add('hl-done');
+
+    // Next pointer display value (what does node[i].next point to?)
+    const ptrDisplayVal = i < n - 1 ? values[i + 1] : 'NULL';
+    const ptrColor = isDone ? '#22c55e' : (isPrev && !isCurr ? '#f97316' : (isCurr ? '#6366f1' : (isNext ? '#10b981' : 'var(--primary)')));
+
+    node.innerHTML = `
+      <div class="node-label" style="font-size:${labelFS}">Node&nbsp;[${i}]</div>
+      <div class="node-data"  style="font-size:${dataFS}">${values[i]}</div>
+      <div class="node-ptr"   style="font-size:${ptrFS}">
+        <span class="ptr-key">next</span>
+        <span class="ptr-arrow-icon">→</span>
+        <span class="ptr-val" style="color:${ptrColor}">${ptrDisplayVal}</span>
+      </div>`;
+
+    node.style.width = NODE_W + 'px';
 
     wrap.appendChild(node);
 
-    // Arrow
+    // Arrow (between node i and node i+1)
     if (i < n - 1) {
       const arrowWrap = document.createElement('div');
       arrowWrap.className = 'arrow-wrap';
+      arrowWrap.style.width = ARROW_W + 'px';
       const line = document.createElement('div');
       line.className = 'arrow-line';
-      // Reversed arrows
-      if (reversed.includes(i) && step.phase >= 2) line.classList.add('reversed');
+      if (reversed.includes(i) && phase >= 2) line.classList.add('reversed');
       arrowWrap.appendChild(line);
       wrap.appendChild(arrowWrap);
     }
+    nodeRow.appendChild(wrap);
 
-    listCanvas.appendChild(wrap);
+    /* ----- ADDR-ROW cell ----- */
+    const addrCell = document.createElement('div');
+    addrCell.className = 'addr-cell';
+    addrCell.style.width = NODE_W + 'px';
+    addrCell.style.fontSize = addrFS;
+    addrCell.textContent = addr;
+    addrRow.appendChild(addrCell);
+
+    // addr spacer for arrow
+    if (i < n - 1) {
+      const addrArrow = document.createElement('div');
+      addrArrow.className = 'addr-cell addr-cell-arrow';
+      addrArrow.style.width = ARROW_W + 'px';
+      addrRow.appendChild(addrArrow);
+    }
   }
 
-  // NULL terminus
+  /* ── Arrow + NULL terminus ── */
+  // ptr-row spacer for arrow + null
+  const ptrArrow = document.createElement('div');
+  ptrArrow.className = 'ptr-cell ptr-cell-arrow';
+  ptrArrow.style.width = NULL_W + 'px';
+  ptrRow.appendChild(ptrArrow);
+
+  // null arrow + null node in node-row
+  const nullWrap = document.createElement('div');
+  nullWrap.className = 'node-wrap';
+  const arrowToNull = document.createElement('div');
+  arrowToNull.className = 'arrow-wrap';
+  arrowToNull.style.width = ARROW_W + 'px';
+  const lineToNull = document.createElement('div');
+  lineToNull.className = 'arrow-line';
+  arrowToNull.appendChild(lineToNull);
   const nullNode = document.createElement('div');
   nullNode.className = 'null-node';
-  nullNode.innerHTML = '<div style="font-size:0.55rem;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:2px;opacity:0.6">ptr</div>NULL';
-  // small arrow before NULL
-  const arrowWrap = document.createElement('div');
-  arrowWrap.className = 'arrow-wrap';
-  const line2 = document.createElement('div');
-  line2.className = 'arrow-line';
-  arrowWrap.appendChild(line2);
-  listCanvas.appendChild(arrowWrap);
-  listCanvas.appendChild(nullNode);
+  nullNode.style.fontSize = ptrFS;
+  nullNode.innerHTML = `<div class="null-ptr-label" style="font-size:${addrFS}">PTR</div>NULL`;
+  nullWrap.appendChild(arrowToNull);
+  nullWrap.appendChild(nullNode);
+  nodeRow.appendChild(nullWrap);
+
+  // addr-row spacer for null
+  const addrNull = document.createElement('div');
+  addrNull.className = 'addr-cell addr-cell-arrow';
+  addrNull.style.width = NULL_W + 'px';
+  addrRow.appendChild(addrNull);
+
+  listCanvas.appendChild(ptrRow);
+  listCanvas.appendChild(nodeRow);
+  listCanvas.appendChild(addrRow);
 }
 
 function renderInitialList(values) {
+  // Build a synthetic "step 0 not yet started" view
+  const n = values.length;
   listCanvas.innerHTML = '';
   listCanvas.classList.remove('hidden');
   emptyState.classList.add('hidden');
 
-  const headWrap = document.createElement('div');
-  headWrap.className = 'head-label';
-  headWrap.innerHTML = `<div class="head-badge">HEAD</div><div class="head-arrow"></div>`;
-  listCanvas.appendChild(headWrap);
+  updateOpBanner(-1);
+
+  const { NODE_W, ARROW_W, HEAD_W, NULL_W, scale,
+          dataFS, labelFS, ptrFS, addrFS, ptrBadgeFS,
+          stemH, ptrRowH, addrRowH } = getScaledDims(n);
+
+  const ptrRow  = document.createElement('div');
+  const nodeRow = document.createElement('div');
+  const addrRow = document.createElement('div');
+  ptrRow.className  = 'ptr-row';
+  nodeRow.className = 'node-row';
+  addrRow.className = 'addr-row';
+  ptrRow.style.height  = ptrRowH;
+  addrRow.style.height = addrRowH;
+
+  // HEAD col
+  const ptrHead = document.createElement('div');
+  ptrHead.className = 'ptr-cell ptr-cell-head';
+  ptrHead.style.width = HEAD_W + 'px';
+  ptrRow.appendChild(ptrHead);
+  const headCol = document.createElement('div');
+  headCol.className = 'head-col';
+  headCol.style.width = HEAD_W + 'px';
+  headCol.innerHTML = `<div class="head-label"><div class="head-badge">HEAD</div><div class="head-arrow"></div></div>`;
+  nodeRow.appendChild(headCol);
+  const addrHead = document.createElement('div');
+  addrHead.className = 'addr-cell';
+  addrHead.style.width = HEAD_W + 'px';
+  addrRow.appendChild(addrHead);
 
   values.forEach((v, i) => {
+    const addr = ADDRS[i] || ('0x' + (0x1a00 + i * 0x10).toString(16).toUpperCase());
+
+    const ptrCell = document.createElement('div');
+    ptrCell.className = 'ptr-cell';
+    ptrCell.style.width = NODE_W + 'px';
+    ptrRow.appendChild(ptrCell);
+
     const wrap = document.createElement('div');
     wrap.className = 'node-wrap';
-    wrap.style.animationDelay = (i * 0.07) + 's';
-
+    wrap.style.animationDelay = (i * 0.06) + 's';
     const node = document.createElement('div');
     node.className = 'node';
-    const label = document.createElement('div');
-    label.className = 'node-label'; label.textContent = 'Node';
-    const data = document.createElement('div');
-    data.className = 'node-data'; data.textContent = v;
-    const ptr = document.createElement('div');
-    ptr.className = 'node-ptr'; ptr.textContent = 'next → ' + (i < values.length - 1 ? values[i + 1] : 'NULL');
-    node.appendChild(label); node.appendChild(data); node.appendChild(ptr);
+    node.style.width = NODE_W + 'px';
+    const ptrDisplayVal = i < n - 1 ? values[i + 1] : 'NULL';
+    node.innerHTML = `
+      <div class="node-label" style="font-size:${labelFS}">Node&nbsp;[${i}]</div>
+      <div class="node-data"  style="font-size:${dataFS}">${v}</div>
+      <div class="node-ptr"   style="font-size:${ptrFS}">
+        <span class="ptr-key">next</span>
+        <span class="ptr-arrow-icon">→</span>
+        <span class="ptr-val">${ptrDisplayVal}</span>
+      </div>`;
     wrap.appendChild(node);
 
-    if (i < values.length - 1) {
-      const aw = document.createElement('div'); aw.className = 'arrow-wrap';
+    if (i < n - 1) {
+      const aw = document.createElement('div'); aw.className = 'arrow-wrap'; aw.style.width = ARROW_W + 'px';
       const ln = document.createElement('div'); ln.className = 'arrow-line';
       aw.appendChild(ln); wrap.appendChild(aw);
     }
-    listCanvas.appendChild(wrap);
+    nodeRow.appendChild(wrap);
+
+    const addrCell = document.createElement('div');
+    addrCell.className = 'addr-cell';
+    addrCell.style.width = NODE_W + 'px';
+    addrCell.textContent = addr;
+    addrRow.appendChild(addrCell);
+    if (i < n - 1) {
+      const addrAw = document.createElement('div');
+      addrAw.className = 'addr-cell addr-cell-arrow';
+      addrAw.style.width = ARROW_W + 'px';
+      addrRow.appendChild(addrAw);
+    }
   });
-  const aw2 = document.createElement('div'); aw2.className = 'arrow-wrap';
-  const ln2 = document.createElement('div'); ln2.className = 'arrow-line'; aw2.appendChild(ln2);
-  const nullNode = document.createElement('div');
-  nullNode.className = 'null-node';
-  nullNode.innerHTML = '<div style="font-size:0.55rem;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:2px;opacity:0.6">ptr</div>NULL';
-  listCanvas.appendChild(aw2);
-  listCanvas.appendChild(nullNode);
+
+  // NULL terminus
+  const ptrArrow = document.createElement('div');
+  ptrArrow.className = 'ptr-cell ptr-cell-arrow';
+  ptrArrow.style.width = NULL_W + 'px';
+  ptrRow.appendChild(ptrArrow);
+  const nullWrap = document.createElement('div'); nullWrap.className = 'node-wrap';
+  const arrowToNull = document.createElement('div'); arrowToNull.className = 'arrow-wrap'; arrowToNull.style.width = ARROW_W + 'px';
+  const lineToNull = document.createElement('div'); lineToNull.className = 'arrow-line';
+  arrowToNull.appendChild(lineToNull);
+  const nullNode = document.createElement('div'); nullNode.className = 'null-node';
+  nullNode.style.fontSize = ptrFS;
+  nullNode.innerHTML = `<div class="null-ptr-label" style="font-size:${addrFS}">PTR</div>NULL`;
+  nullWrap.appendChild(arrowToNull); nullWrap.appendChild(nullNode);
+  nodeRow.appendChild(nullWrap);
+  const addrNull = document.createElement('div');
+  addrNull.className = 'addr-cell addr-cell-arrow';
+  addrNull.style.width = NULL_W + 'px';
+  addrRow.appendChild(addrNull);
+
+  listCanvas.appendChild(ptrRow);
+  listCanvas.appendChild(nodeRow);
+  listCanvas.appendChild(addrRow);
 }
+
+
+
+
+
+
+
 
 /* ══════════════════════════════════════════════
    VAR TRACKER  +  CODE  +  ALGO
